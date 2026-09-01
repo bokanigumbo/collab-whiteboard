@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>whiteboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="wall">
+
+    <div class="board-frame">
+      <canvas id="board"></canvas>
+
+      <!-- other people's cursors get drawn here as small floating tags,
+           positioned in real screen coordinates rather than on the canvas
+           itself, so they never get "drawn into" the artwork -->
+      <div id="cursorLayer"></div>
+
+      <div class="connection-banner" id="connectionBanner">connecting…</div>
+    </div>
+
+    <!-- the marker tray - a real whiteboard's tools live in a tray at the
+         bottom, so the toolbar lives there too rather than floating
+         arbitrarily over the board -->
+    <div class="tray">
+      <div class="marker-row" id="colorRow"></div>
+
+      <div class="tray-divider"></div>
+
+      <div class="width-control">
+        <span class="width-dot" style="width:4px;height:4px;"></span>
+        <input type="range" id="widthSlider" min="2" max="16" value="4" aria-label="Marker thickness" />
+        <span class="width-dot" style="width:14px;height:14px;"></span>
+      </div>
+
+      <div class="tray-divider"></div>
+
+      <button id="eraserBtn" class="tray-btn" aria-pressed="false">Eraser</button>
+      <button id="clearBtn" class="tray-btn danger">Clear board</button>
+
+      <div class="tray-divider"></div>
+
+      <div class="presence" id="presenceList" aria-live="polite"></div>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+/* ===== collaborative whiteboard =====
+   grounded in the actual physical object: a whiteboard mounted on a wall,
+   with a marker tray underneath - rather than a generic dark-mode app shell
+*/
+
+:root {
+  --wall: #d8d3c7;
+  --board: #fbfaf6;
+  --frame: #a29c8c;
+  --frame-dark: #6b6558;
+  --ink: #2b2b2e;
+  --muted: #756f61;
+  --tray-bg: #eeeae0;
+  --danger: #c94a3f;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  color: var(--ink);
+  overflow: hidden;
+}
+
+/* ===== the wall behind the board ===== */
+.wall {
+  height: 100%;
+  background: var(--wall);
+  background-image: radial-gradient(circle at 20% 15%, rgba(255,255,255,0.35), transparent 55%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+}
+
+/* ===== the board itself, with a frame like a real mounted whiteboard ===== */
+.board-frame {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 1400px;
+  background: var(--frame);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow:
+    0 20px 45px rgba(0,0,0,0.18),
+    inset 0 0 0 1px var(--frame-dark);
+  min-height: 0;
+}
+
+#board {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--board);
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.connection-banner {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: .4rem 1rem;
+  background: var(--ink);
+  color: var(--board);
+  font-size: .8rem;
+  border-radius: 999px;
+  opacity: 0.9;
+  transition: opacity .3s ease;
+}
+
+.connection-banner.connected {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ===== remote cursors ===== */
+#cursorLayer {
+  position: absolute;
+  inset: 14px;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.remote-cursor {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transform: translate(-2px, -2px);
+  transition: left .08s linear, top .08s linear;
+}
+
+.remote-cursor .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--board);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+.remote-cursor .tag {
+  font-size: .72rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: #fff;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+/* ===== the marker tray ===== */
+.tray {
+  width: 100%;
+  max-width: 1400px;
+  margin-top: 1rem;
+  background: var(--tray-bg);
+  border-radius: 12px;
+  padding: .7rem 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.marker-row {
+  display: flex;
+  gap: .5rem;
+}
+
+.marker-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform .12s ease, border-color .12s ease;
+}
+
+.marker-swatch:hover {
+  transform: translateY(-2px);
+}
+
+.marker-swatch.selected {
+  border-color: var(--ink);
+}
+
+.tray-divider {
+  width: 1px;
+  height: 26px;
+  background: rgba(0,0,0,0.12);
+}
+
+.width-control {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.width-dot {
+  border-radius: 50%;
+  background: var(--ink);
+  flex-shrink: 0;
+}
+
+.width-control input[type="range"] {
+  width: 90px;
+  accent-color: var(--ink);
+}
+
+.tray-btn {
+  padding: .5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #fff;
+  color: var(--ink);
+  font-family: 'Poppins', sans-serif;
+  font-size: .85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+
+.tray-btn:hover {
+  background: #f4f2ec;
+}
+
+.tray-btn:active {
+  transform: translateY(1px);
+}
+
+.tray-btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--board);
+}
+
+.tray-btn.danger {
+  color: var(--danger);
+  border-color: rgba(201, 74, 63, 0.3);
+}
+
+.tray-btn.danger:hover {
+  background: rgba(201, 74, 63, 0.08);
+}
+
+/* ===== presence list ===== */
+.presence {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-left: auto;
+}
+
+.presence-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 600;
+  border: 2px solid var(--tray-bg);
+  margin-left: -8px;
+}
+
+.presence-dot:first-child {
+  margin-left: 0;
+}
+
+/* ===== responsive ===== */
+@media (max-width: 720px) {
+  .tray {
+    justify-content: center;
+  }
+  .presence {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.tray-btn:focus-visible,
+.marker-swatch:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}

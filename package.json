@@ -1,0 +1,13 @@
+{
+  "name": "collab-whiteboard",
+  "version": "1.0.0",
+  "description": "a real-time collaborative whiteboard - draw together, see everyone's cursor live",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/realtime.test.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
