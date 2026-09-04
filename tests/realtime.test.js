@@ -241,26 +241,69 @@ test('offline stroke replay: a stroke-complete message is validated, stored whol
   a.close(); b.close(); c.close();
 });
 
-test('history trimming: strokeHistory never grows past the configured maximum', async () => {
+test('history trimming: strokeHistory keeps EXACTLY the most recent 500 strokes, oldest dropped first', async () => {
   const a = await connectClient();
   await waitFor(a, (m) => m.type === 'welcome');
 
-  const totalToSend = LIMITS.MAX_STROKES_IN_HISTORY + 20;
-  for (let i = 0; i < totalToSend; i++) {
-    const strokeId = `trim-test-${i}`;
-    send(a, { type: 'stroke-start', strokeId, color: '#2f9e5c', width: 2, isEraser: false, point: { x: 0.1, y: 0.1 } });
-    send(a, { type: 'stroke-end', strokeId });
+  // THE ACTUAL TEST-QUALITY BUG THIS FIXES: sending 520 strokes back-to-back
+  // with no delay is roughly 1040 messages (start+end per stroke) in well
+  // under a second - comfortably enough to trip the rate limiter (60
+  // messages/second, 5 strikes before a disconnect) and get client `a`
+  // kicked partway through. if that happened, far fewer than 500 strokes
+  // would ever actually reach the server - meaning the original assertion
+  // (`length <= 500`) could pass even if trimHistory() were deleted
+  // entirely, simply because rate-limiting silently prevented enough
+  // strokes from arriving to ever test the cap at all. the rate limit is
+  // temporarily raised here specifically so this test genuinely exercises
+  // trimming under real load, then restored immediately after - the
+  // "rate limiting" test right after this one needs the real, normal
+  // limits to still be in effect.
+  const originalMaxMessages = LIMITS.RATE_LIMIT_MAX_MESSAGES;
+  const originalStrikesBeforeKick = LIMITS.RATE_LIMIT_STRIKES_BEFORE_KICK;
+  LIMITS.RATE_LIMIT_MAX_MESSAGES = 100000;
+  LIMITS.RATE_LIMIT_STRIKES_BEFORE_KICK = 100000;
+
+  try {
+    const totalToSend = LIMITS.MAX_STROKES_IN_HISTORY + 20;
+    for (let i = 0; i < totalToSend; i++) {
+      const strokeId = `trim-test-${i}`;
+      send(a, { type: 'stroke-start', strokeId, color: '#2f9e5c', width: 2, isEraser: false, point: { x: 0.1, y: 0.1 } });
+      send(a, { type: 'stroke-end', strokeId });
+    }
+    await delay(500);
+
+    const b = await connectClient();
+    const welcome = await waitFor(b, (m) => m.type === 'welcome');
+
+    // exactly 500, not just "500 or fewer" - if the rate limiter (or
+    // anything else) had silently swallowed some strokes before trimming
+    // ever kicked in, this would catch it; the old `<=` assertion couldn't
+    assert.strictEqual(
+      welcome.strokeHistory.length, LIMITS.MAX_STROKES_IN_HISTORY,
+      `expected exactly ${LIMITS.MAX_STROKES_IN_HISTORY} strokes to survive, got ${welcome.strokeHistory.length}`
+    );
+
+    const survivingIds = new Set(welcome.strokeHistory.map((s) => s.strokeId));
+
+    // the oldest 20 strokes sent (trim-test-0 through trim-test-19) should
+    // have been trimmed away entirely - confirming it's genuinely the
+    // OLDEST strokes being dropped, not an arbitrary or wrong-end trim
+    for (let i = 0; i < 20; i++) {
+      assert.ok(!survivingIds.has(`trim-test-${i}`), `trim-test-${i} should have been trimmed (it was one of the 20 oldest), but survived`);
+    }
+
+    // the boundary stroke (the oldest one that should just barely survive)
+    // and the very last stroke sent should both still be present
+    assert.ok(survivingIds.has('trim-test-20'), 'trim-test-20 is the oldest stroke that should survive trimming, but it did not');
+    assert.ok(survivingIds.has(`trim-test-${totalToSend - 1}`), 'the most recently sent stroke should always survive trimming');
+
+    b.close();
+  } finally {
+    LIMITS.RATE_LIMIT_MAX_MESSAGES = originalMaxMessages;
+    LIMITS.RATE_LIMIT_STRIKES_BEFORE_KICK = originalStrikesBeforeKick;
   }
-  await delay(400);
 
-  const b = await connectClient();
-  const welcome = await waitFor(b, (m) => m.type === 'welcome');
-  assert.ok(
-    welcome.strokeHistory.length <= LIMITS.MAX_STROKES_IN_HISTORY,
-    `history should be capped at ${LIMITS.MAX_STROKES_IN_HISTORY}, got ${welcome.strokeHistory.length}`
-  );
-
-  a.close(); b.close();
+  a.close();
 });
 
 test('message size limit: an oversized message is rejected and does not affect other clients', async () => {
