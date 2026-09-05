@@ -1,17 +1,33 @@
 /* ===== collaborative whiteboard =====
-   grounded in the actual physical object: a whiteboard mounted on a wall,
-   with a marker tray underneath - rather than a generic dark-mode app shell
+   the canvas is the product - everything else is a thin, quiet tool strip
+   that recedes until it's needed. material cues (a warm-toned drawing
+   surface) are kept where they earn their place on usability grounds, not
+   to imitate a physical whiteboard - see the comments below for which is
+   which.
 */
 
 :root {
-  --wall: #d8d3c7;
-  --board: #fbfaf6;
-  --frame: #a29c8c;
-  --frame-dark: #6b6558;
+  --board: #fbfaf6;       /* warm off-white - easier on the eyes than stark
+                              white for a surface you look at for a long
+                              session, and visually separates "drawing
+                              surface" from browser chrome. not decoration. */
+  --edge: rgba(0,0,0,0.08); /* barely-there boundary, for edge-finding only */
   --ink: #2b2b2e;
-  --muted: #756f61;
-  --tray-bg: #eeeae0;
+  --muted: #8a8578;
+  --tray-bg: #f4f2ec;
   --danger: #c94a3f;
+  --danger-quiet: #a3564c;
+  --ok: #3a8a5c;
+
+  /* the actual marker palette - this IS the colour identity of the whole
+     interface. nothing else on the page introduces a competing accent
+     colour. */
+  --m1: #2b2b2e;
+  --m2: #e0483e;
+  --m3: #2f6fed;
+  --m4: #2f9e5c;
+  --m5: #ef8a2c;
+  --m6: #8b5cf6;
 }
 
 * { box-sizing: border-box; }
@@ -22,75 +38,43 @@ html, body {
 }
 
 body {
-  font-family: 'Poppins', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: var(--ink);
   overflow: hidden;
 }
 
-/* ===== the wall behind the board ===== */
-.wall {
+/* ===== the drawing surface ===== */
+/* the canvas fills almost the entire viewport - a few px of margin, not a
+   wall, not a frame, not a shadow. the tray is anchored to its bottom
+   edge as one continuous surface, not a second box sitting below a first. */
+.surface {
+  position: relative;
   height: 100%;
-  background: var(--wall);
-  background-image: radial-gradient(circle at 20% 15%, rgba(255,255,255,0.35), transparent 55%);
+  padding: 6px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 1.5rem;
-}
-
-/* ===== the board itself, with a frame like a real mounted whiteboard ===== */
-.board-frame {
-  position: relative;
-  flex: 1;
-  width: 100%;
-  max-width: 1400px;
-  background: var(--frame);
-  border-radius: 14px;
-  padding: 14px;
-  box-shadow:
-    0 20px 45px rgba(0,0,0,0.18),
-    inset 0 0 0 1px var(--frame-dark);
-  min-height: 0;
 }
 
 #board {
+  flex: 1;
   width: 100%;
-  height: 100%;
+  min-height: 0;
   display: block;
   background: var(--board);
-  border-radius: 6px;
+  border: 1px solid var(--edge);
+  border-radius: 3px;
   cursor: crosshair;
   touch-action: none;
 }
 
-.connection-banner {
+#cursorLayer {
   position: absolute;
-  top: 26px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: .4rem 1rem;
-  background: var(--ink);
-  color: var(--board);
-  font-size: .8rem;
-  border-radius: 999px;
-  opacity: 0.9;
-  transition: opacity .3s ease;
-}
-
-.connection-banner.connected {
-  opacity: 0;
+  top: 6px; left: 6px; right: 6px; bottom: 68px;
   pointer-events: none;
+  overflow: hidden;
 }
 
 /* ===== remote cursors ===== */
-#cursorLayer {
-  position: absolute;
-  inset: 14px;
-  pointer-events: none;
-  overflow: hidden;
-  border-radius: 6px;
-}
-
 .remote-cursor {
   position: absolute;
   display: flex;
@@ -101,69 +85,102 @@ body {
 }
 
 .remote-cursor .dot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   border: 2px solid var(--board);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
 .remote-cursor .tag {
   font-size: .72rem;
   padding: 2px 7px;
-  border-radius: 5px;
+  border-radius: 4px;
   color: #fff;
   white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
-/* ===== the marker tray ===== */
+/* ===== the tool tray ===== */
+/* one continuous row, fixed height, never wraps. secondary information
+   (presence, clear) collapses behind a disclosure on narrow screens
+   instead of wrapping the tray to a second row. */
 .tray {
-  width: 100%;
-  max-width: 1400px;
-  margin-top: 1rem;
+  flex-shrink: 0;
+  margin-top: 6px;
+  min-height: 52px;
   background: var(--tray-bg);
-  border-radius: 12px;
-  padding: .7rem 1.1rem;
+  border-radius: 8px;
+  padding: 0 .85rem;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  gap: 1.1rem;
 }
 
-.marker-row {
-  display: flex;
-  gap: .5rem;
-}
+.tool-group { display: flex; align-items: center; gap: .45rem; }
 
+/* ===== colour swatches =====
+   each swatch's OUTER hit target is a fixed size at all times - selecting
+   a colour changes what's drawn INSIDE that fixed box (a bigger circle +
+   a checkmark), so it can never push neighbouring controls. selection is
+   never colour-only: size difference + checkmark together. */
 .marker-swatch {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marker-swatch .puck {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--swatch-color);
+  transition: width .12s ease, height .12s ease;
+}
+
+.marker-swatch.selected .puck {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: transform .12s ease, border-color .12s ease;
 }
 
-.marker-swatch:hover {
-  transform: translateY(-2px);
+.marker-swatch .check {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+  transition: opacity .1s ease;
+  filter: drop-shadow(0 0 1px rgba(0,0,0,0.55));
+  pointer-events: none;
 }
 
-.marker-swatch.selected {
-  border-color: var(--ink);
+.marker-swatch.selected .check { opacity: 1; }
+
+.marker-swatch:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 50%; }
+
+/* ===== stroke width =====
+   the dot's size IS the preview - not a decoration next to one. its
+   container is a fixed size so resizing the dot never moves anything
+   next to it. */
+.width-control input[type="range"] {
+  width: 78px;
+  accent-color: var(--ink);
 }
 
-.tray-divider {
-  width: 1px;
-  height: 26px;
-  background: rgba(0,0,0,0.12);
-}
-
-.width-control {
+.width-preview {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: .5rem;
+  justify-content: center;
 }
 
 .width-dot {
@@ -172,86 +189,112 @@ body {
   flex-shrink: 0;
 }
 
-.width-control input[type="range"] {
-  width: 90px;
-  accent-color: var(--ink);
+.width-value {
+  font-size: .78rem;
+  color: var(--muted);
+  min-width: 2.4em;
 }
 
-.tray-btn {
-  padding: .5rem 1rem;
-  border-radius: 8px;
+/* ===== buttons ===== */
+.tool-btn {
+  padding: .5rem .85rem;
+  border-radius: 6px;
   border: 1px solid rgba(0,0,0,0.12);
   background: #fff;
   color: var(--ink);
-  font-family: 'Poppins', sans-serif;
-  font-size: .85rem;
+  font-family: inherit;
+  font-size: .83rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background .15s ease, transform .1s ease;
+  white-space: nowrap;
+  transition: background .15s ease;
 }
 
-.tray-btn:hover {
-  background: #f4f2ec;
-}
+.tool-btn:hover { background: #fff; filter: brightness(0.97); }
+.tool-btn:active { transform: translateY(1px); }
 
-.tray-btn:active {
-  transform: translateY(1px);
-}
-
-.tray-btn[aria-pressed="true"] {
+.tool-btn[aria-pressed="true"] {
   background: var(--ink);
   color: var(--board);
+  border-color: var(--ink);
 }
 
-.tray-btn.danger {
+/* clear board: the restriction is stated in the button's own visible
+   text, not a badge/lock icon/tooltip-only explanation. a disabled
+   button can't be clicked-to-discover why - the label already says why. */
+.tool-btn.danger {
   color: var(--danger);
   border-color: rgba(201, 74, 63, 0.3);
 }
-
-.tray-btn.danger:hover {
-  background: rgba(201, 74, 63, 0.08);
+.tool-btn.danger:hover { background: rgba(201, 74, 63, 0.08); }
+.tool-btn.danger:disabled {
+  color: var(--muted);
+  border-color: rgba(0,0,0,0.1);
+  background: none;
+  cursor: not-allowed;
 }
+.tool-btn.danger:disabled:hover { background: none; }
 
-/* ===== presence list ===== */
-.presence {
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-  margin-left: auto;
+/* ===== connection status =====
+   a fixed-width slot so text appearing/changing never shifts the swatches
+   or width control next to it. near-silent when connected; the one time
+   this becomes visually assertive is when something actually needs
+   attention. */
+.connection-status {
+  display: inline-block;
+  width: 6.5em;
+  font-size: .78rem;
+  color: var(--muted);
+  flex-shrink: 0;
 }
+.connection-status.reconnecting { color: var(--danger-quiet); font-weight: 600; }
+.connection-status.connected { color: var(--ok); opacity: 0; transition: opacity 1.2s ease .4s; }
 
-.presence-dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: .68rem;
-  font-weight: 600;
-  border: 2px solid var(--tray-bg);
-  margin-left: -8px;
-}
+/* ===== presence =====
+   each person's dot uses their actual assigned drawing/cursor colour -
+   never an arbitrary avatar palette - and shows their real name, not an
+   initial. owner is a plain word, not a ring or badge. */
+.tray-secondary { display: flex; align-items: center; gap: 1.1rem; margin-left: auto; }
 
-.presence-dot:first-child {
-  margin-left: 0;
-}
+.presence { display: flex; align-items: center; gap: .7rem; }
 
-/* ===== responsive ===== */
-@media (max-width: 720px) {
-  .tray {
-    justify-content: center;
-  }
-  .presence {
+.presence-item { display: flex; align-items: center; gap: .35rem; font-size: .8rem; color: var(--ink); }
+.presence-item .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.presence-item .owner-tag { color: var(--muted); }
+
+/* ===== responsive: the "more" disclosure =====
+   colour, width and eraser stay reachable at every size, since those are
+   what you need mid-drawing. presence and clear board are secondary -
+   they collapse behind a compact control rather than wrapping the tray
+   to a second row and eating vertical space from the board. */
+.more-btn { display: none; }
+
+@media (max-width: 640px) {
+  .tray-secondary {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
     margin-left: 0;
-    width: 100%;
-    justify-content: center;
+    background: var(--tray-bg);
+    border-radius: 8px;
+    padding: .6rem .75rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    flex-direction: column;
+    align-items: stretch;
+    gap: .6rem;
+    min-width: 180px;
   }
+  .tray-secondary.open { display: flex; }
+  .tray-secondary .presence { flex-direction: column; align-items: flex-start; gap: .4rem; }
+
+  .more-btn { display: inline-flex; align-items: center; justify-content: center; margin-left: auto; padding: .5rem .7rem; }
+  .tray { position: relative; }
 }
 
-.tray-btn:focus-visible,
-.marker-swatch:focus-visible {
+.tool-btn:focus-visible,
+.marker-swatch:focus-visible,
+.more-btn:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }

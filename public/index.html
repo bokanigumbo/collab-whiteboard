@@ -4,48 +4,46 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>whiteboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <div class="wall">
+  <div class="surface">
+    <canvas id="board"></canvas>
 
-    <div class="board-frame">
-      <canvas id="board"></canvas>
+    <!-- other people's cursors get drawn here as small floating tags,
+         positioned in real screen coordinates rather than on the canvas
+         itself, so they never get "drawn into" the artwork -->
+    <div id="cursorLayer"></div>
 
-      <!-- other people's cursors get drawn here as small floating tags,
-           positioned in real screen coordinates rather than on the canvas
-           itself, so they never get "drawn into" the artwork -->
-      <div id="cursorLayer"></div>
+    <!-- the tool tray sits at the bottom edge of the drawing surface for
+         two concrete, non-decorative reasons: it stays out of the visual
+         field while you're looking at what you're drawing, and it sits in
+         comfortable thumb reach on touch devices. -->
+    <div class="tray" id="tray">
 
-      <div class="connection-banner" id="connectionBanner">connecting…</div>
-    </div>
+      <div class="tool-group" id="colorRow" role="radiogroup" aria-label="Marker colour"></div>
 
-    <!-- the marker tray - a real whiteboard's tools live in a tray at the
-         bottom, so the toolbar lives there too rather than floating
-         arbitrarily over the board -->
-    <div class="tray">
-      <div class="marker-row" id="colorRow"></div>
-
-      <div class="tray-divider"></div>
-
-      <div class="width-control">
-        <span class="width-dot" style="width:4px;height:4px;"></span>
+      <div class="tool-group width-control">
         <input type="range" id="widthSlider" min="2" max="16" value="4" aria-label="Marker thickness" />
-        <span class="width-dot" style="width:14px;height:14px;"></span>
+        <span class="width-preview" aria-hidden="true"><span class="width-dot" id="widthDot"></span></span>
+        <span class="width-value" id="widthValue">4px</span>
       </div>
 
-      <div class="tray-divider"></div>
+      <button id="eraserBtn" class="tool-btn" aria-pressed="false">Eraser</button>
 
-      <button id="eraserBtn" class="tray-btn" aria-pressed="false">Eraser</button>
-      <button id="clearBtn" class="tray-btn danger">Clear board</button>
+      <!-- connection status has a fixed-width slot so "Reconnecting…"
+           appearing/disappearing never shifts anything next to it -->
+      <span class="connection-status" id="connectionStatus" aria-live="polite"></span>
 
-      <div class="tray-divider"></div>
+      <div class="tray-secondary" id="traySecondary">
+        <div class="presence" id="presenceList" aria-live="polite"></div>
+        <button id="clearBtn" class="tool-btn danger">Clear board</button>
+      </div>
 
-      <div class="presence" id="presenceList" aria-live="polite"></div>
+      <button id="moreBtn" class="tool-btn more-btn" aria-expanded="false" aria-controls="traySecondary" aria-label="More options">⋯</button>
+
     </div>
-
   </div>
 
   <script src="script.js"></script>

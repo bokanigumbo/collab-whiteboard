@@ -11,7 +11,7 @@ const MARKER_COLORS = ['#2b2b2e', '#e0483e', '#2f6fed', '#2f9e5c', '#ef8a2c', '#
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const cursorLayer = document.getElementById('cursorLayer');
-const connectionBanner = document.getElementById('connectionBanner');
+const connectionStatus = document.getElementById('connectionStatus');
 const presenceList = document.getElementById('presenceList');
 
 let myId = null;
@@ -223,25 +223,51 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 // ===== toolbar =====
+const CHECK_SVG = '<svg class="check" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 const colorRow = document.getElementById('colorRow');
 MARKER_COLORS.forEach((color, i) => {
   const swatch = document.createElement('button');
   swatch.className = 'marker-swatch' + (i === 0 ? ' selected' : '');
-  swatch.style.background = color;
+  swatch.style.setProperty('--swatch-color', color);
+  swatch.setAttribute('role', 'radio');
+  swatch.setAttribute('aria-checked', i === 0 ? 'true' : 'false');
   swatch.setAttribute('aria-label', `Select marker colour ${color}`);
+  swatch.innerHTML = `<span class="puck"></span>${CHECK_SVG}`;
   swatch.addEventListener('click', () => {
     currentColor = color;
     erasing = false;
     document.getElementById('eraserBtn').setAttribute('aria-pressed', 'false');
-    document.querySelectorAll('.marker-swatch').forEach((s) => s.classList.remove('selected'));
+    document.querySelectorAll('.marker-swatch').forEach((s) => {
+      s.classList.remove('selected');
+      s.setAttribute('aria-checked', 'false');
+    });
     swatch.classList.add('selected');
+    swatch.setAttribute('aria-checked', 'true');
   });
   colorRow.appendChild(swatch);
 });
 
-document.getElementById('widthSlider').addEventListener('input', (e) => {
+// the width preview dot's own size IS the preview, not a decoration next
+// to one - it's scaled up from the raw slider value (2-16) so it stays
+// visible at the low end, but tracks the real value directly rather than
+// being two fixed decorative dots either side of the slider.
+const widthSlider = document.getElementById('widthSlider');
+const widthDot = document.getElementById('widthDot');
+const widthValue = document.getElementById('widthValue');
+
+function updateWidthPreview(value) {
+  const displaySize = Math.round(6 + (value - 2) * 1.4); // maps slider's 2-16 range to a visibly-scaling 6-25px dot
+  widthDot.style.width = `${displaySize}px`;
+  widthDot.style.height = `${displaySize}px`;
+  widthValue.textContent = `${value}px`;
+}
+
+widthSlider.addEventListener('input', (e) => {
   currentWidth = Number(e.target.value);
+  updateWidthPreview(currentWidth);
 });
+updateWidthPreview(currentWidth);
 
 const eraserBtn = document.getElementById('eraserBtn');
 eraserBtn.addEventListener('click', () => {
@@ -249,12 +275,13 @@ eraserBtn.addEventListener('click', () => {
   eraserBtn.setAttribute('aria-pressed', String(erasing));
 });
 
+// clear board: the restriction is communicated by the button's own visible
+// text and its disabled state, BEFORE any click - not a badge, not a lock
+// icon, not a tooltip you'd only see on hover, and not an alert() you'd
+// only see after clicking. a disabled button can't be clicked at all, so
+// there's no click-to-discover-why path left to handle.
 const clearBtn = document.getElementById('clearBtn');
 clearBtn.addEventListener('click', () => {
-  if (!isOwner) {
-    alert('only the room owner can clear the board for everyone');
-    return;
-  }
   if (!confirm('Clear the board for everyone?')) return;
   strokeHistory = [];
   redrawAll();
@@ -262,9 +289,25 @@ clearBtn.addEventListener('click', () => {
 });
 
 function updateOwnerUI() {
-  clearBtn.style.opacity = isOwner ? '1' : '0.5';
-  clearBtn.title = isOwner ? '' : 'only the room owner can clear the board';
+  clearBtn.disabled = !isOwner;
+  clearBtn.textContent = isOwner ? 'Clear board' : 'Clear board (owner only)';
 }
+
+// on narrow screens, presence + clear board collapse behind this button
+// rather than wrapping the tray to a second row - colour/width/eraser
+// stay reachable at every size since those are what you need mid-drawing
+const moreBtn = document.getElementById('moreBtn');
+const traySecondary = document.getElementById('traySecondary');
+moreBtn.addEventListener('click', () => {
+  const isOpen = traySecondary.classList.toggle('open');
+  moreBtn.setAttribute('aria-expanded', String(isOpen));
+});
+document.addEventListener('click', (e) => {
+  if (!traySecondary.classList.contains('open')) return;
+  if (traySecondary.contains(e.target) || moreBtn.contains(e.target)) return;
+  traySecondary.classList.remove('open');
+  moreBtn.setAttribute('aria-expanded', 'false');
+});
 
 // ===== remote cursors =====
 const remoteCursorEls = new Map();
@@ -293,16 +336,36 @@ function removeRemoteCursor(id) {
 }
 
 // ===== presence list =====
+// each person's dot uses their actual assigned drawing/cursor colour -
+// the same colour their own strokes appear in - never a separate,
+// arbitrary avatar palette. real names are shown, not initials: at the
+// realistic participant counts a whiteboard session actually has, a full
+// name is cheap to show and far more useful than a single letter. owner
+// is a plain word next to the name, not a ring or badge you'd only
+// notice on hover.
 function renderPresence(presence) {
   presenceList.innerHTML = '';
   presence.forEach((p) => {
-    const dot = document.createElement('div');
-    dot.className = 'presence-dot';
+    const item = document.createElement('div');
+    item.className = 'presence-item';
+
+    const dot = document.createElement('span');
+    dot.className = 'dot';
     dot.style.background = p.color;
-    dot.title = p.name + (p.id === myId ? ' (you)' : '') + (p.isOwner ? ' - room owner' : '');
-    dot.textContent = p.name.slice(0, 1);
-    if (p.isOwner) dot.style.boxShadow = '0 0 0 2px gold';
-    presenceList.appendChild(dot);
+    item.appendChild(dot);
+
+    const label = document.createElement('span');
+    label.textContent = p.name + (p.id === myId ? ' (you)' : '');
+    item.appendChild(label);
+
+    if (p.isOwner) {
+      const ownerTag = document.createElement('span');
+      ownerTag.className = 'owner-tag';
+      ownerTag.textContent = '· owner';
+      item.appendChild(ownerTag);
+    }
+
+    presenceList.appendChild(item);
   });
 }
 
@@ -370,13 +433,20 @@ function connect() {
   socket = new WebSocket(`${protocol}//${window.location.host}`);
 
   socket.addEventListener('open', () => {
-    connectionBanner.textContent = 'connected';
-    connectionBanner.classList.add('connected');
+    // near-silent when connected - it fades to invisible after a moment
+    // rather than staying as a permanent "everything is fine" fixture.
+    // still occupies its fixed-width slot, so nothing next to it moves.
+    connectionStatus.textContent = 'Connected';
+    connectionStatus.classList.remove('reconnecting');
+    connectionStatus.classList.add('connected');
   });
 
   socket.addEventListener('close', () => {
-    connectionBanner.textContent = 'reconnecting…';
-    connectionBanner.classList.remove('connected');
+    // the one moment this becomes visually assertive, since it's the one
+    // moment it actually needs attention
+    connectionStatus.textContent = 'Reconnecting…';
+    connectionStatus.classList.remove('connected');
+    connectionStatus.classList.add('reconnecting');
     abandonActiveStrokeIfAny();
     setTimeout(connect, 1500);
   });
